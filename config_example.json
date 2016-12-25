@@ -4,17 +4,18 @@
    for config.json. Make sure to remove all comments before starting the bot
    (Python's json library throws errors when it attempts to parse comments). */
 {
-    // You may not leave this blank or provide 3 or more tags.
-    // Use underscores instead of spaces
+    /* You may not leave this blank or provide 3 or more tags.
+       Use underscores instead of spaces */
     "tags":[
         "tag1",
         "tag2"
     ],
 
-    // Score threshold for posts, must be an integer
+    /* Score threshold for posts, must be an integer */
     "score":0,
 
-    // Tag and artist blacklists
+    /* Tag and artist blacklists 
+       Insert them like you would with above tags */
     "blacklist":{
         "tags":[
             "naughty_tag"
@@ -25,8 +26,8 @@
         ]
     },
 
-    // Put your bot's Twitter API keys below (found in your Twitter app's
-    // settings at https://apps.twitter.com)
+    /* Put your bot's Twitter API keys below (found in your Twitter app's
+       settings at https://apps.twitter.com/) */
     "twitter_keys":{
         "consumer":"",
         "consumer_secret":"",
