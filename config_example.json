@@ -1,0 +1,36 @@
+/* Configuration file example
+
+   All keys below are REQUIRED. Feel free to use this as a template
+   for config.json. Make sure to remove all comments before starting the bot
+   (Python's json library throws errors when it attempts to parse comments). */
+{
+    // You may not leave this blank or provide 3 or more tags.
+    // Use underscores instead of spaces
+    "tags":[
+        "tag1",
+        "tag2"
+    ],
+
+    // Score threshold for posts, must be an integer
+    "score":0,
+
+    // Tag and artist blacklists
+    "blacklist":{
+        "tags":[
+            "naughty_tag"
+        ],
+
+        "artists":[
+            "restricted_user"
+        ]
+    },
+
+    // Put your bot's Twitter API keys below (found in your Twitter app's
+    // settings at https://apps.twitter.com)
+    "twitter_keys":{
+        "consumer":"",
+        "consumer_secret":"",
+        "access":"",
+        "access_secret":""
+    }
+}
