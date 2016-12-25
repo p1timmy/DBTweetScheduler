@@ -1,6 +1,6 @@
 # Timmy's Danbooru Twitter Bot
 
-A Danbooru Twitter bot using a set hourly schedule. This will run a new Twitter pic bot in the near future.
+A Danbooru Twitter bot using a set hourly schedule. This is the same exact script that runs the [Anime Schoolgirls Bot](https://twitter.com/AnimeSchoolGirls) on Twitter.
 
 ## Requirements
 
@@ -9,7 +9,7 @@ A Danbooru Twitter bot using a set hourly schedule. This will run a new Twitter 
 
 ## Setup and Use
 
-Before running the bot, set up `config.json`. You can use the provided `config_example.json` file as a template.
+Before running the bot, set up `config.json`. You can use the provided [`config_example.json`](./config.json) file as a template.
 
 To start, use the following command: `python3 dbtweets.py`.
 
