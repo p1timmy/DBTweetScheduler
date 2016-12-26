@@ -11,7 +11,7 @@ import requests
 import schedule
 import tweepy
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 # File and directory names
 CONFIG_FILE = "config.json"
@@ -75,6 +75,12 @@ USER_BLACKLIST = (
     "bakakhee",
     "cactuskhee",
     "junkhee")
+# Use for source URLs (excluding Twitter and Pixiv)
+SOURCE_DOMAINS = (
+    "tumblr.com",
+    "deviantart.com",
+    "twitpic.com",
+    "seiga.nicovideo.jp")
 
 logger = logging.getLogger(__name__)
 config_dict = {}
@@ -304,8 +310,8 @@ def get_source(post: dict):
     source = post["source"]
     if source.startswith("https://twitter.com/"):
         return "@" + source.split("/")[3]
-    for domain in ("tumblr.com/", "deviantart.com/", "twitpic.com/"):
-        if domain in source:
+    for domain in SOURCE_DOMAINS:
+        if domain + "/" in source:
             return source
     return None
 
