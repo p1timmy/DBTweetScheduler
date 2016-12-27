@@ -11,7 +11,7 @@ import requests
 import schedule
 import tweepy
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 
 # File and directory names
 CONFIG_FILE = "config.json"
@@ -22,6 +22,7 @@ RECENT_IDS_FILE = "recentids.txt"
 DB_URL = "http://danbooru.donmai.us/"
 DB_API_URL = DB_URL + "{endpoint}.json{params}"
 PIXIV_URL = "http://www.pixiv.net/member_illust.php?mode=medium&illust_id={id}"
+DA_URL = "http://{artist}.deviantart.com/gallery/#/{id}"
 LOG_FMT = "%(levelname)s (%(name)s): %(message)s"
 
 # Preset tag blacklist, mostly tags that are too explicit
@@ -304,12 +305,21 @@ def eval_score(score: int, postid):
     return False
 
 def get_source(post: dict):
+    def get_da_permalink(url: str):
+        info = url.split("_by_")[-1].split(".")[0]
+        artist = info.split("-")[0]
+        art_id = info.split("-")[1]
+        return DA_URL.format(artist=artist, id=art_id)
+
     if post["pixiv_id"]:
         return PIXIV_URL.format(id=post["pixiv_id"])
 
     source = post["source"]
     if source.startswith("https://twitter.com/"):
         return "@" + source.split("/")[3]
+    if "deviantart.net/" in source:
+        return get_da_permalink(source)
+
     for domain in SOURCE_DOMAINS:
         if domain + "/" in source:
             return source
