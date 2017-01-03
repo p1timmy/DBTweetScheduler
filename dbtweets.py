@@ -11,7 +11,7 @@ import requests
 import schedule
 import tweepy
 
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 
 # File and directory names
 CONFIG_FILE = "config.json"
@@ -311,6 +311,10 @@ def get_source(post: dict):
         art_id = info.split("-")[1]
         return DA_URL.format(artist=artist, id=art_id)
 
+    if "bad_id" in post["tag_string_general"]:
+        logger.debug("Post ID %s contains tag \"bad_id\"", post["id"])
+        return
+
     if post["pixiv_id"]:
         return PIXIV_URL.format(id=post["pixiv_id"])
 
@@ -323,7 +327,7 @@ def get_source(post: dict):
     for domain in SOURCE_DOMAINS:
         if domain + "/" in source:
             return source
-    return None
+    return
 
 def post_image(bot: TweetPicBot):
     # Step 1: Repopulate queue if size is less than 5
