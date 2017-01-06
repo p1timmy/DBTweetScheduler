@@ -17,4 +17,4 @@ To terminate, simply press `Ctrl-C`.
 
 ---
 
-Copyright 2016 Pokémon Trainer Timmy. Licensed under the MIT License.
+Copyright 2017 Pokémon Trainer Timmy. Licensed under the MIT License.

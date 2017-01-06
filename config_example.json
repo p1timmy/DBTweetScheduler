@@ -5,7 +5,7 @@
    (Python's json library throws errors when it attempts to parse comments). */
 {
     /* You may not leave this blank or provide 3 or more tags.
-       Use underscores instead of spaces */
+       Use underscores instead of spaces. */
     "tags":[
         "tag1",
         "tag2"
@@ -14,7 +14,11 @@
     /* Score threshold for posts, must be an integer */
     "score":0,
 
-    /* Tag and artist blacklists 
+    /* Favorite count threshold, must be an integer.
+       Use any number less than 1 to bypass */
+    "favorites":1,
+
+    /* Tag and artist blacklists
        Insert them like you would with above tags */
     "blacklist":{
         "tags":[

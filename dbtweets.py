@@ -11,7 +11,7 @@ import requests
 import schedule
 import tweepy
 
-__version__ = "1.0.3"
+__version__ = "1.1.0"
 
 # File and directory names
 CONFIG_FILE = "config.json"
@@ -82,6 +82,8 @@ SOURCE_DOMAINS = (
     "deviantart.com",
     "twitpic.com",
     "seiga.nicovideo.jp")
+# Post ID number of "TrainerTrish" art
+TRISH_ID = 2575437
 
 logger = logging.getLogger(__name__)
 config_dict = {}
@@ -180,25 +182,29 @@ def verify_keys():
                 "Required key \"%s\" must have value of type string "
                 "and can't be blank" % k)
 
-    for k in ("tags", "blacklist", "twitter_keys", "score"):
+    for k in ("tags", "blacklist", "twitter_keys", "score", "favorites"):
         do_assert(k in config_dict,
-        "Required key \"%s\" not found in config" % k)
+            "Required key \"%s\" not found in config" % k)
 
         if k in ("blacklist", "twitter_keys"):
             do_assert(isinstance(config_dict[k], dict), "Required key "
                 "%s must have value of type object (dict)" % k)
+
         elif k == "tags":
-            do_assert(isinstance(config_dict["tags"], list), "Required key "
+            do_assert(isinstance(config_dict[k], list), "Required key "
                 "\"%s\" must have value of type array (list)" % k)
-            do_assert(len(config_dict["tags"]) < 3,
+            do_assert(len(config_dict[k]) < 3,
                 "Search queries are limited to 2 tags")
-            do_assert(len(config_dict["tags"]) > 0, "Tags cannot be blank")
-        elif k == "score":
-            do_assert(isinstance(config_dict["score"], int), "Required key "
-                "\"%s\" must have value of type int" % k)
+            do_assert(len(config_dict[k]) > 0, "Tags cannot be blank")
+
+        elif k in ("score", "favorites"):
+            do_assert(isinstance(config_dict[k], int), "Required key "
+                "\"%s\" must have value of integer" % k)
+
         else:
             do_assert(isinstance(config_dict[k], str), "Required key "
                 "\"%s\" must have value of type string and can't be blank" % k)
+
     verify_twitter_keys()
     verify_blacklist_keys()
 
@@ -278,9 +284,11 @@ def eval_post(post: dict):
             post["rating"])
         return False
 
-    # Evaluate tags and score
+    # Evaluate tags, score, and favorite counts
     return (eval_tags(post["tag_string"], postid) and
-            eval_score(post["score"], postid))
+        eval_score(post["score"], postid) and
+        eval_favorites(post["fav_count"], postid)
+    )
 
 def eval_tags(tag_string: str, postid):
     # Return True if no tags are in blacklist, otherwise return False
@@ -302,6 +310,14 @@ def eval_score(score: int, postid):
         return True
     logger.debug("Post ID %s did not meet score threshold of %s", postid,
         config_dict["score"])
+    return False
+
+def eval_favorites(count: int, postid):
+    # Same as eval_score, but evaluate based on post's favorite count
+    if count >= config_dict["favorites"]:
+        return True
+    logger.debug("Post ID %s did not meet favorite count threshold of %s",
+        postid, config_dict["score"])
     return False
 
 def get_source(post: dict):
@@ -347,11 +363,14 @@ def post_image(bot: TweetPicBot):
     file_path = download_file(postid, url)
 
     # Step 4: Prepare tweet content
-    source = postdata[2]
-    if source:
-        source_str = "Source: %s" % source
+    if postid == TRISH_ID:
+        source_str = "TrainerTrish (aka @TrainerTimmy1 as a girl)\n"
     else:
         source_str = ""
+
+    source = postdata[2]
+    if source:
+        source_str += "Source: %s" % source
 
     # Step 5: Send tweet and add post ID to recent IDs list
     if bot.send_tweet(file_path, source_str):
@@ -421,12 +440,14 @@ def save_recent_ids():
 
 def main_loop(interval: int=30):
     # Set up Twitter API client
-    bot = TweetPicBot(config_dict["twitter_keys"])
+    assert 60 > interval > 0, "Interval must be between 1 and 59 minutes"
 
     # Make images directory if it doesn't exist
     if not IMG_DIR in os.listdir():
         logger.info("Creating images directory")
         os.mkdir(IMG_DIR)
+
+    bot = TweetPicBot(config_dict["twitter_keys"])
 
     # Build initial queue, then set up schedule
     populate_queue()
