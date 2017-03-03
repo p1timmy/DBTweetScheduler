@@ -11,7 +11,7 @@ import requests
 import schedule
 import tweepy
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 
 # File and directory names
 CONFIG_FILE = "config.json"
