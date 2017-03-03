@@ -378,6 +378,7 @@ def post_image(bot: TweetPicBot):
                 "Post ID of uploaded image was %s", postid)
         recent_ids.append(postid)
         logger.debug("%s post(s) remaining in queue", len(image_queue))
+        save_recent_ids()
 
 def download_file(postid: str, url: str):
     # based from http://stackoverflow.com/a/16696317
@@ -439,7 +440,7 @@ def save_recent_ids():
         logger.debug("Saved last 25 post IDs to %s", RECENT_IDS_FILE)
 
 def main_loop(interval: int=30):
-    # Set up Twitter API client
+    # Check interval range
     assert 60 > interval > 0, "Interval must be between 1 and 59 minutes"
 
     # Make images directory if it doesn't exist
@@ -447,6 +448,7 @@ def main_loop(interval: int=30):
         logger.info("Creating images directory")
         os.mkdir(IMG_DIR)
 
+    # Set up Twitter API client
     bot = TweetPicBot(config_dict["twitter_keys"])
 
     # Build initial queue, then set up schedule
@@ -475,5 +477,4 @@ if __name__ == "__main__":
     except:
         logger.exception("Exception occurred, now shutting down")
 
-    save_recent_ids()
     schedule.clear()
