@@ -1,11 +1,13 @@
 # Timmy's Danbooru Twitter Bot
 
-A Danbooru Twitter bot using a set hourly schedule. This is the same exact script that runs the [Anime School Girls Bot](https://twitter.com/AnimeSchoolGirls) on Twitter.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+A Danbooru Twitter bot using a set hourly schedule. This is the same exact script that runs the [Anime School Girls Bot](https://twitter.com/SchoolGirlsBot) on Twitter.
 
 ## Requirements
 
 - Python 3.3 or later
-- `requests`, `schedule`, and `tweepy` libraries. You can use `pip install -r requirements.txt` to automatically install those required libraries.
+- [`requests`](https://pypi.python.org/pypi/requests), [`schedule`](https://pypi.python.org/pypi/schedule), and [`tweepy`](https://pypi.python.org/pypi/tweepy) libraries. You can use `pip install -r requirements.txt` to automatically install those required libraries.
 
 ## Setup and Use
 
