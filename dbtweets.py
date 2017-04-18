@@ -132,10 +132,10 @@ class TweetPicBot():
         # Return True if tweet was sent successfully, otherwise False
         try:
             logger.debug("Uploading %s", media_path)
-            # media_id = self._api.media_upload(media_path).media_id_string
+            media_id = self._api.media_upload(media_path).media_id_string
 
             logger.debug("Sending tweet")
-            # self._api.update_status(status=tweet, media_ids=[media_id])
+            self._api.update_status(status=tweet, media_ids=[media_id])
             return True
         except tweepy.TweepError as t:
             log_tweepy_err(t, "Failed to send tweet")
