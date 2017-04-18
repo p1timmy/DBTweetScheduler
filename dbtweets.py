@@ -11,12 +11,13 @@ import requests
 import schedule
 import tweepy
 
-__version__ = "1.1.1"
+__version__ = "1.1.2"
 
 # File and directory names
 CONFIG_FILE = "config.json"
 IMG_DIR = "img"
 RECENT_IDS_FILE = "recentids.txt"
+DB_DUMP_FILE = "danbooru_dump.txt"
 
 # Templates
 DB_URL = "http://danbooru.donmai.us/"
@@ -87,6 +88,8 @@ TRISH_ID = 2575437
 
 logger = logging.getLogger(__name__)
 config_dict = {}
+# For debugging purposes
+db_request_raw = ""
 
 class ImageQueue():
     def __init__(self):
@@ -129,10 +132,10 @@ class TweetPicBot():
         # Return True if tweet was sent successfully, otherwise False
         try:
             logger.debug("Uploading %s", media_path)
-            media_id = self._api.media_upload(media_path).media_id_string
+            # media_id = self._api.media_upload(media_path).media_id_string
 
             logger.debug("Sending tweet")
-            self._api.update_status(status=tweet, media_ids=[media_id])
+            # self._api.update_status(status=tweet, media_ids=[media_id])
             return True
         except tweepy.TweepError as t:
             log_tweepy_err(t, "Failed to send tweet")
@@ -162,6 +165,8 @@ def parse_config():
     verify_keys()
 
 def verify_keys():
+    # TODO: clean up this function
+
     def do_assert(condition, err_msg: str):
         assert condition, err_msg
 
@@ -221,7 +226,9 @@ def get_danbooru_request(endpoint: str, params: dict):
     else:
         params_str = ""
 
+    global db_request_raw
     r = requests.get(DB_API_URL.format(endpoint=endpoint, params=params_str))
+    db_request_raw = r.content.decode()
     return r.json()
 
 def populate_queue(limit: int=50, attempts=1):
@@ -345,10 +352,24 @@ def get_source(post: dict):
             return source
     return
 
+def dump_db_request(error):
+    # Dumps Danbooru request data to file when bot runs into an error
+    # while building queue
+    if type(error) in (SystemExit, KeyboardInterrupt, AssertionError):
+        return
+    with open(DB_DUMP_FILE, "w", encoding="utf_8") as f:
+        f.write(db_request_raw)
+        logger.info("Error occurred while populating queue, "
+            "Danbooru request data dumped to %s", DB_DUMP_FILE)
+
 def post_image(bot: TweetPicBot):
     # Step 1: Repopulate queue if size is less than 5
     if len(image_queue) < 5:
-        populate_queue()
+        try:
+            populate_queue()
+        except Exception as e:
+            dump_db_request(e)
+            raise
 
     # Step 2: Check if post ID was already posted in the last 25 tweets
     postdata = image_queue.dequeue()
@@ -452,7 +473,11 @@ def main_loop(interval: int=30):
     bot = TweetPicBot(config_dict["twitter_keys"])
 
     # Build initial queue, then set up schedule
-    populate_queue()
+    try:
+        populate_queue()
+    except Exception as e:
+        dump_db_request(e)
+        raise
     for m in range(0, 60, interval):
         schedule.every().hour.at("00:%s" % m).do(post_image, bot)
 

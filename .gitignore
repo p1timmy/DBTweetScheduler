@@ -15,6 +15,7 @@ Thumbs.db
 # Files with sensitive or variable info
 config.json
 recentids.txt
+danbooru_dump.txt
 
 # Images directory
 img/*
