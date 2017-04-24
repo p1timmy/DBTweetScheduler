@@ -11,7 +11,7 @@ import requests
 import schedule
 import tweepy
 
-__version__ = "1.1.2"
+__version__ = "1.2.0"
 
 # File and directory names
 CONFIG_FILE = "config.json"
@@ -77,7 +77,8 @@ USER_BLACKLIST = (
     "bakakhee",
     "cactuskhee",
     "junkhee")
-# Use for source URLs (excluding Twitter and Pixiv)
+# Use for source URLs
+# (except Twitter, Pixiv, and deviantart.net, which are processed separately)
 SOURCE_DOMAINS = (
     "tumblr.com",
     "deviantart.com",
@@ -110,6 +111,9 @@ class ImageQueue():
 
     def is_empty(self):
         return self.__len__() < 1
+
+    def get_first_item(self):
+        return self._items[-1] if self._items else None
 
 class TweetPicBot():
     def __init__(self, keys: dict):
@@ -291,10 +295,11 @@ def eval_post(post: dict):
             post["rating"])
         return False
 
-    # Evaluate tags, score, and favorite counts
+    # Evaluate tags, score, favorite count, and filetype
     return (eval_tags(post["tag_string"], postid) and
         eval_score(post["score"], postid) and
-        eval_favorites(post["fav_count"], postid)
+        eval_favorites(post["fav_count"], postid) and
+        eval_filetype(post["large_file_url"], postid)
     )
 
 def eval_tags(tag_string: str, postid):
@@ -325,6 +330,13 @@ def eval_favorites(count: int, postid):
         return True
     logger.debug("Post ID %s did not meet favorite count threshold of %s",
         postid, config_dict["score"])
+    return False
+
+def eval_filetype(filename: str, postid):
+    filetype = filename.split(".")[-1]
+    if filetype.lower() in ("jpg", "jpeg", "png", "gif"):
+        return True
+    logger.debug("Post ID %s has invalid filetype of .%s", postid, filetype)
     return False
 
 def get_source(post: dict):
@@ -372,16 +384,23 @@ def post_image(bot: TweetPicBot):
             raise
 
     # Step 2: Check if post ID was already posted in the last 25 tweets
-    postdata = image_queue.dequeue()
+    postdata = image_queue.get_first_item()
     postid = postdata[0]
     while postid in recent_ids:
+        # Discard post in queue
+        image_queue.dequeue()
         logger.debug("Post ID %s was uploaded in the last 25 tweets", postid)
-        postdata = image_queue.dequeue()
+        postdata = image_queue.get_first_item()
         postid = postdata[0]
 
     # Step 3: Download image to file
     url = postdata[1]
-    file_path = download_file(postid, url)
+    try:
+        file_path = download_file(postid, url)
+    except:
+        logger.exception("Failed to download image for post ID %s, "
+            "will retry at next scheduled interval", postid)
+        return
 
     # Step 4: Prepare tweet content
     if postid == TRISH_ID:
@@ -397,9 +416,19 @@ def post_image(bot: TweetPicBot):
     if bot.send_tweet(file_path, source_str):
         logger.info("Tweet sent successfully! "
                 "Post ID of uploaded image was %s", postid)
-        recent_ids.append(postid)
+
+        # Discard post from queue when done
+        image_queue.dequeue()
         logger.debug("%s post(s) remaining in queue", len(image_queue))
+
+        # Save recent IDs file
+        recent_ids.append(postid)
         save_recent_ids()
+
+    else:
+        logger.info(
+            "Tweet for post ID %s will be sent at next scheduled interval",
+            postid)
 
 def download_file(postid: str, url: str):
     # based from http://stackoverflow.com/a/16696317
@@ -474,7 +503,12 @@ def main_loop(interval: int=30):
 
     # Build initial queue, then set up schedule
     try:
-        populate_queue()
+        # Post immediately if current UTC minute is divisible by interval
+        current_min = time.gmtime().tm_min
+        if current_min % interval == 0:
+            post_image(bot)
+        else:
+            populate_queue()
     except Exception as e:
         dump_db_request(e)
         raise
