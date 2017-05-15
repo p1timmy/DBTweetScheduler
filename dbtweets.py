@@ -11,7 +11,7 @@ import requests
 import schedule
 import tweepy
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 
 # File and directory names
 CONFIG_FILE = "config.json"
@@ -84,6 +84,8 @@ SOURCE_DOMAINS = (
     "deviantart.com",
     "twitpic.com",
     "seiga.nicovideo.jp")
+# Use for verifying content type before downloading an image
+ALLOWED_CONTENT_TYPES = ("image/jpeg", "image/png", "image/gif")
 # Post ID number of "TrainerTrish" art
 TRISH_ID = 2575437
 
@@ -365,14 +367,14 @@ def get_source(post: dict):
     return
 
 def dump_db_request(error):
-    # Dumps Danbooru request data to file when bot runs into an error
+    # Dumps response content to file when bot runs into an error
     # while building queue
     if type(error) in (SystemExit, KeyboardInterrupt, AssertionError):
         return
     with open(DB_DUMP_FILE, "w", encoding="utf_8") as f:
         f.write(db_request_raw)
         logger.info("Error occurred while populating queue, "
-            "Danbooru request data dumped to %s", DB_DUMP_FILE)
+            "response content dumped to %s", DB_DUMP_FILE)
 
 def post_image(bot: TweetPicBot):
     # Step 1: Repopulate queue if size is less than 5
@@ -397,6 +399,17 @@ def post_image(bot: TweetPicBot):
     url = postdata[1]
     try:
         file_path = download_file(postid, url)
+    except TypeError as type_error:
+        # If received content type is not a valid image
+        # (see ALLOWED_CONTENT_TYPES list above), then move on to
+        # next post in queue
+        logger.error("%s, moving on to next post in queue", type_error)
+
+        image_queue.dequeue()
+        # Add 1s delay to make sure we're not flooding Danbooru with requests
+        time.sleep(1)
+        post_image(bot)
+        return
     except:
         logger.exception("Failed to download image for post ID %s, "
             "will retry at next scheduled interval", postid)
@@ -443,6 +456,13 @@ def download_file(postid: str, url: str):
     time_start = time.time()
 
     r = requests.get(url, stream=True)
+    # Check Content-Type header in case Danbooru returns HTML/XML file
+    # instead of an image for any reason
+    content_type = r.headers["Content-Type"]
+    if content_type not in ALLOWED_CONTENT_TYPES:
+        raise TypeError("Content type '%s' is invalid for media upload"
+            % content_type)
+
     with open(path, "wb") as f:
         for chunk in r.iter_content(chunk_size=1024):
             if chunk: # filter out keep-alive new chunks
