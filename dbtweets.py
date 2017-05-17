@@ -11,7 +11,7 @@ import requests
 import schedule
 import tweepy
 
-__version__ = "1.2.1"
+__version__ = "1.2.2"
 
 # File and directory names
 CONFIG_FILE = "config.json"
@@ -262,9 +262,11 @@ def populate_queue(limit: int=50, attempts=1):
         # Enqueue post info
         postid = post["id"]
         # Use "large_file_url" just in case post's actual image is too big
-        url = DB_URL + post["large_file_url"]
+        url = post["large_file_url"]
+        if url.startswith("/cached/"):
+            url = url[7:]
         source = get_source(post)
-        image_queue.enqueue(postid, url, source)
+        image_queue.enqueue(postid, DB_URL + url, source)
         logger.debug("Added post ID %s to queue", postid)
         postcount += 1
 
@@ -416,10 +418,10 @@ def post_image(bot: TweetPicBot):
         return
 
     # Step 4: Prepare tweet content
-    if postid == TRISH_ID:
-        source_str = "TrainerTrish (aka @TrainerTimmy1 as a girl)\n"
-    else:
-        source_str = ""
+    # if postid == TRISH_ID:
+    #     source_str = "TrainerTrish (aka @TrainerTimmy1 as a girl)\n"
+    # else:
+    source_str = ""
 
     source = postdata[2]
     if source:
@@ -458,10 +460,11 @@ def download_file(postid: str, url: str):
     r = requests.get(url, stream=True)
     # Check Content-Type header in case Danbooru returns HTML/XML file
     # instead of an image for any reason
-    content_type = r.headers["Content-Type"]
-    if content_type not in ALLOWED_CONTENT_TYPES:
-        raise TypeError("Content type '%s' is invalid for media upload"
-            % content_type)
+    if "Content-Type" in r.headers:
+        content_type = r.headers["Content-Type"]
+        if content_type not in ALLOWED_CONTENT_TYPES:
+            raise TypeError("Content type '%s' is invalid for media upload"
+                % content_type)
 
     with open(path, "wb") as f:
         for chunk in r.iter_content(chunk_size=1024):
