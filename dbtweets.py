@@ -263,8 +263,6 @@ def populate_queue(limit: int=50, attempts=1):
         postid = post["id"]
         # Use "large_file_url" just in case post's actual image is too big
         url = post["large_file_url"]
-        if url.startswith("/cached/"):
-            url = url[7:]
         source = get_source(post)
         image_queue.enqueue(postid, DB_URL + url, source)
         logger.debug("Added post ID %s to queue", postid)
