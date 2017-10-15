@@ -11,7 +11,7 @@ import requests
 import schedule
 import tweepy
 
-__version__ = "1.2.2"
+__version__ = "1.2.3"
 
 # File and directory names
 CONFIG_FILE = "config.json"
@@ -138,10 +138,10 @@ class TweetPicBot():
         # Return True if tweet was sent successfully, otherwise False
         try:
             logger.debug("Uploading %s", media_path)
-            media_id = self._api.media_upload(media_path).media_id_string
+            # media_id = self._api.media_upload(media_path).media_id_string
 
             logger.debug("Sending tweet")
-            self._api.update_status(status=tweet, media_ids=[media_id])
+            # self._api.update_status(status=tweet, media_ids=[media_id])
             return True
         except tweepy.TweepError as t:
             log_tweepy_err(t, "Failed to send tweet")
@@ -344,8 +344,10 @@ def eval_filetype(filename: str, postid):
 def get_source(post: dict):
     def get_da_permalink(url: str):
         info = url.split("_by_")[-1].split(".")[0]
-        artist = info.split("-")[0]
-        art_id = info.split("-")[1]
+        info_dash_split = info.split("-")
+        if len(info_dash_split) < 2:
+            return url
+        artist, art_id = info_dash_split
         return DA_URL.format(artist=artist, id=art_id)
 
     if "bad_id" in post["tag_string_general"]:
