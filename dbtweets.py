@@ -11,7 +11,7 @@ import requests
 import schedule
 import tweepy
 
-__version__ = "1.2.3"
+__version__ = "1.2.4"
 
 # File and directory names
 CONFIG_FILE = "config.json"
@@ -85,7 +85,8 @@ SOURCE_DOMAINS = (
     "twitpic.com",
     "seiga.nicovideo.jp")
 # Use for verifying content type before downloading an image
-ALLOWED_CONTENT_TYPES = ("image/jpeg", "image/png", "image/gif")
+ALLOWED_CONTENT_TYPES = ("image/jpeg", "image/png", "image/gif",
+    "binary/octet-stream")
 # Post ID number of "TrainerTrish" art
 TRISH_ID = 2575437
 
@@ -138,10 +139,10 @@ class TweetPicBot():
         # Return True if tweet was sent successfully, otherwise False
         try:
             logger.debug("Uploading %s", media_path)
-            # media_id = self._api.media_upload(media_path).media_id_string
+            media_id = self._api.media_upload(media_path).media_id_string
 
             logger.debug("Sending tweet")
-            # self._api.update_status(status=tweet, media_ids=[media_id])
+            self._api.update_status(status=tweet, media_ids=[media_id])
             return True
         except tweepy.TweepError as t:
             log_tweepy_err(t, "Failed to send tweet")
@@ -283,7 +284,7 @@ def populate_queue(limit: int=50, attempts=1):
     populate_queue(limit, attempts)
 
 def eval_post(post: dict):
-    # Returns False if given post is not safe (i.e. caught by filters below)
+    # Returns False if given post is caught by any filters below
     postid = post["id"]
 
     # Check if post is banned (no image available)
@@ -402,9 +403,8 @@ def post_image(bot: TweetPicBot):
     try:
         file_path = download_file(postid, url)
     except TypeError as type_error:
-        # If received content type is not a valid image
-        # (see ALLOWED_CONTENT_TYPES list above), then move on to
-        # next post in queue
+        # If received content type is not in ALLOWED_CONTENT_TYPES list above,
+        # then move on to next post in queue
         logger.error("%s, moving on to next post in queue", type_error)
 
         image_queue.dequeue()
@@ -418,10 +418,10 @@ def post_image(bot: TweetPicBot):
         return
 
     # Step 4: Prepare tweet content
-    # if postid == TRISH_ID:
-    #     source_str = "TrainerTrish (aka @TrainerTimmy1 as a girl)\n"
-    # else:
-    source_str = ""
+    if postid == TRISH_ID:
+        source_str = "Trish-chan (aka @PlayerOneTimmy as a girl)\n"
+    else:
+        source_str = ""
 
     source = postdata[2]
     if source:
