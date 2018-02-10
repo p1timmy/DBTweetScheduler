@@ -11,7 +11,7 @@ import requests
 import schedule
 import tweepy
 
-__version__ = "1.2.5"
+__version__ = "1.2.6"
 
 # File and directory names
 CONFIG_FILE = "config.json"
@@ -264,8 +264,12 @@ def populate_queue(limit: int=50, attempts=1):
         postid = post["id"]
         # Use "large_file_url" just in case post's actual image is too big
         url = post["large_file_url"]
+        # Check if image URL is within Danbooru domain
+        # (i.e. root directory of website) and add domain prefix if true
+        if url.startswith("/"):
+            url = DB_URL + url
         source = get_source(post)
-        image_queue.enqueue(postid, DB_URL + url, source)
+        image_queue.enqueue(postid, url, source)
         logger.debug("Added post ID %s to queue", postid)
         postcount += 1
 
