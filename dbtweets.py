@@ -11,7 +11,7 @@ import requests
 import schedule
 import tweepy
 
-__version__ = "1.2.4"
+__version__ = "1.2.5"
 
 # File and directory names
 CONFIG_FILE = "config.json"
@@ -461,7 +461,9 @@ def download_file(postid: str, url: str):
     # Check Content-Type header in case Danbooru returns HTML/XML file
     # instead of an image for any reason
     if "Content-Type" in r.headers:
-        content_type = r.headers["Content-Type"]
+        # Strip out extra stuff in content headers for some images
+        # (example: "image/jpeg; charset=utf-8")
+        content_type = r.headers["Content-Type"].split("; ")[0]
         if content_type not in ALLOWED_CONTENT_TYPES:
             raise TypeError("Content type '%s' is invalid for media upload"
                 % content_type)
