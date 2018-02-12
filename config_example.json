@@ -18,6 +18,9 @@
        Use any number less than 1 to bypass */
     "favorites":1,
 
+    /* Maximum number of posts to fetch from API, must be an integer or null */
+    "limit":null,
+
     /* Tag and artist blacklists
        Insert them like you would with above tags */
     "blacklist":{

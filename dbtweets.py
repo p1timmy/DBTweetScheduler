@@ -11,7 +11,7 @@ import requests
 import schedule
 import tweepy
 
-__version__ = "1.2.6"
+__version__ = "1.3.0"
 
 # File and directory names
 CONFIG_FILE = "config.json"
@@ -20,8 +20,8 @@ RECENT_IDS_FILE = "recentids.txt"
 DB_DUMP_FILE = "danbooru_dump.txt"
 
 # Templates
-DB_URL = "http://danbooru.donmai.us/"
-DB_API_URL = DB_URL + "{endpoint}.json{params}"
+DB_URL = "http://danbooru.donmai.us"
+DB_API_URL = DB_URL + "/{endpoint}.json{params}"
 PIXIV_URL = "http://www.pixiv.net/member_illust.php?mode=medium&illust_id={id}"
 DA_URL = "http://{artist}.deviantart.com/gallery/#/{id}"
 LOG_FMT = "%(levelname)s (%(name)s): %(message)s"
@@ -194,27 +194,36 @@ def verify_keys():
                 "Required key \"%s\" must have value of type string "
                 "and can't be blank" % k)
 
-    for k in ("tags", "blacklist", "twitter_keys", "score", "favorites"):
+    for k in ("tags", "blacklist", "twitter_keys", "score", "favorites",
+        "limit"):
         do_assert(k in config_dict,
             "Required key \"%s\" not found in config" % k)
+        v = config_dict[k]
 
         if k in ("blacklist", "twitter_keys"):
-            do_assert(isinstance(config_dict[k], dict), "Required key "
+            do_assert(isinstance(v, dict), "Required key "
                 "%s must have value of type object (dict)" % k)
 
         elif k == "tags":
-            do_assert(isinstance(config_dict[k], list), "Required key "
+            do_assert(isinstance(v, list), "Required key "
                 "\"%s\" must have value of type array (list)" % k)
-            do_assert(len(config_dict[k]) < 3,
+            do_assert(len(v) < 3,
                 "Search queries are limited to 2 tags")
-            do_assert(len(config_dict[k]) > 0, "Tags cannot be blank")
+            do_assert(len(v) > 0, "Tags cannot be blank")
 
         elif k in ("score", "favorites"):
-            do_assert(isinstance(config_dict[k], int), "Required key "
+            do_assert(isinstance(v, int), "Required key "
                 "\"%s\" must have value of integer" % k)
 
+        elif k == "limit":
+            do_assert(isinstance(v, int) or v == None, "Required key "
+                "\"%s\" must have value of integer or null" % k)
+            if isinstance(v, int):
+                do_assert(0 < v <= 100, "Required key "
+                    "\"%s\" is out of range (must be between 1 and 100)" % k)
+
         else:
-            do_assert(isinstance(config_dict[k], str), "Required key "
+            do_assert(isinstance(v, str), "Required key "
                 "\"%s\" must have value of type string and can't be blank" % k)
 
     verify_twitter_keys()
@@ -238,15 +247,16 @@ def get_danbooru_request(endpoint: str, params: dict):
     db_request_raw = r.content.decode()
     return r.json()
 
-def populate_queue(limit: int=50, attempts=1):
+def populate_queue(attempts=1):
     # Step 1: Assemble URI parameters
     tags_str = "+".join(config_dict["tags"])
     logger.info("Building post queue for tag(s) \"%s\"", tags_str)
     params = {
         "tags":tags_str,
-        "limit":str(limit),
         "random":"true"
     }
+    if config_dict["limit"]:
+        params["limit"] = str(config_dict["limit"])
 
     # Step 2: Get request and check if it returned any posts
     posts = get_danbooru_request("posts", params)
@@ -285,7 +295,7 @@ def populate_queue(limit: int=50, attempts=1):
     logger.info("No matching images added to queue, retrying in 5s")
     attempts += 1
     time.sleep(5)
-    populate_queue(limit, attempts)
+    populate_queue(attempts)
 
 def eval_post(post: dict):
     # Returns False if given post is caught by any filters below
@@ -336,7 +346,7 @@ def eval_favorites(count: int, postid):
     if count >= config_dict["favorites"]:
         return True
     logger.debug("Post ID %s did not meet favorite count threshold of %s",
-        postid, config_dict["score"])
+        postid, config_dict["favorites"])
     return False
 
 def eval_filetype(filename: str, postid):
@@ -406,10 +416,10 @@ def post_image(bot: TweetPicBot):
     url = postdata[1]
     try:
         file_path = download_file(postid, url)
-    except TypeError as type_error:
+    except IOError as err:
         # If received content type is not in ALLOWED_CONTENT_TYPES list above,
         # then move on to next post in queue
-        logger.error("%s, moving on to next post in queue", type_error)
+        logger.error("%s, moving on to next post in queue", err)
 
         image_queue.dequeue()
         # Add 1s delay to make sure we're not flooding Danbooru with requests
@@ -460,6 +470,7 @@ def download_file(postid: str, url: str):
 
     logger.info("Downloading post ID %s to %s", postid, path)
     time_start = time.time()
+    chunks = 0 # for checking 0-byte files
 
     r = requests.get(url, stream=True)
     # Check Content-Type header in case Danbooru returns HTML/XML file
@@ -469,14 +480,31 @@ def download_file(postid: str, url: str):
         # (example: "image/jpeg; charset=utf-8")
         content_type = r.headers["Content-Type"].split("; ")[0]
         if content_type not in ALLOWED_CONTENT_TYPES:
-            raise TypeError("Content type '%s' is invalid for media upload"
+            raise IOError("Content type '%s' is invalid for media upload"
                 % content_type)
 
     with open(path, "wb") as f:
         for chunk in r.iter_content(chunk_size=1024):
             if chunk: # filter out keep-alive new chunks
                 f.write(chunk)
+                chunks += 1 # count each valid chunk
     time_end = time.time()
+
+    # Raises error if no valid chunks were downloaded
+    if chunks < 1:
+        if local_filename in os.listdir(IMG_DIR + "/"):
+            os.remove(path)
+        raise IOError("0-byte file downloaded")
+
+    # Raises error if downloaded size doesn't match expected size
+    if "Content-Length" in r.headers:
+        expected_size = int(r.headers["Content-Length"])
+        filesize = os.stat(path).st_size
+        if filesize != expected_size:
+            os.remove(path)
+            raise IOError(
+                "Filesize mismatch (possible corrupted/interrupted download)"
+            )
 
     elapsed = round(time_end - time_start, 3)
     logger.info("Completed downloading %s in %ss", local_filename, elapsed)
@@ -516,7 +544,7 @@ def load_recent_ids():
 def save_recent_ids():
     with open(RECENT_IDS_FILE, mode="w") as f:
         f.write("\n".join(recent_ids))
-        logger.debug("Saved last 25 post IDs to %s", RECENT_IDS_FILE)
+    logger.debug("Saved last 25 post IDs to %s", RECENT_IDS_FILE)
 
 def main_loop(interval: int=30):
     # Check interval range
@@ -531,16 +559,16 @@ def main_loop(interval: int=30):
     bot = TweetPicBot(config_dict["twitter_keys"])
 
     # Build initial queue, then set up schedule
-    try:
-        # Post immediately if current UTC minute is divisible by interval
-        current_min = time.gmtime().tm_min
-        if current_min % interval == 0:
-            post_image(bot)
-        else:
+    # Post immediately if current UTC minute is divisible by interval
+    current_min = time.gmtime().tm_min
+    if current_min % interval == 0:
+        post_image(bot)
+    else:
+        try:
             populate_queue()
-    except Exception as e:
-        dump_db_request(e)
-        raise
+        except Exception as e:
+            dump_db_request(e)
+            raise
     for m in range(0, 60, interval):
         schedule.every().hour.at("00:%s" % m).do(post_image, bot)
 
